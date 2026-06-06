@@ -1,0 +1,32 @@
+32  freio
+15  lanterna e freio
+22  luz de cabine
+2   pisca direito
+4   pisca esquerdo
+3   farol (RX0)
+17  ré
+16  farol neblina
+5   luz de teto
+21  luz de farol azul
+19  luz de farol azul
+18  luz de lado
+ 
+
+1 cabine
+2 farol
+3 lado
+4 teto
+5 ré
+
+1 neblina
+2 pisca direito
+3 pisca esquerdo
+4 freio
+5 vcc
+
+
+
+
+
+
+
