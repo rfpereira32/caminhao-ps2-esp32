@@ -1,4 +1,7 @@
-# This is an Arduino RC engine sound & light controller for ESP32
+# Arduino RC Engine Sound & Light Controller for ESP32 — PS3 Bluetooth version
+
+This checkout is the PS3 Bluetooth version of the project, based on the functionally tested commit `2775b97` (`Versao com PS2`). It was tested with a PS3 controller on an ESP32. The firmware's existing behavior is documented in [PS3 controller mapping](documentation/PS3ControllerMapping.md).
+
 It's based on the ATmega 328 version: https://github.com/TheDIYGuy999/Rc_Engine_Sound
 and on bitlunis Halloween example: https://github.com/bitluni/MotionPumpkin
 
