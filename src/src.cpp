@@ -1535,6 +1535,7 @@ void IRAM_ATTR fixedPlaybackTimer()
 //
 
 // Reference https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/rmt.html?highlight=rmt
+static void IRAM_ATTR rmt_isr_handler(void *arg) __attribute__((unused));
 static void IRAM_ATTR rmt_isr_handler(void *arg)
 {
 Serial.println("------ INTERRUPÇÃO -------");
@@ -2099,7 +2100,6 @@ void setup()
  
   // New: PWM read setup, using rmt. Thanks to croky-b
 */
-  uint8_t i;
 /*
   rmt_config_t rmt_channels[PWM_CHANNELS_NUM] = {};
 
@@ -3127,8 +3127,8 @@ void mcpwmOutput()
   }
 
   // Print servo signal debug infos **********************
-  static unsigned long printServoMillis;
 #ifdef SERVO_DEBUG // can slow down the playback loop!
+  static unsigned long printServoMillis;
   if (millis() - printServoMillis > 1000)
   { // Every 1000ms
     printServoMillis = millis();
@@ -4586,7 +4586,7 @@ Serial.println(batteryVoltage);
     if (batteryVoltage < batteryCutoffvoltage)
     {
       Serial.printf("Battery protection triggered, slowing down! Battery: %.2f V Threshold: %.2f V \n", batteryVoltage, batteryCutoffvoltage);
-      Serial.printf("Disconnect battery to prevent it from overdischarging!\n", batteryVoltage, batteryCutoffvoltage);
+      Serial.printf("Disconnect battery to prevent it from overdischarging!\n");
       batteryProtection = true;
     }
     if (batteryVoltage > batteryCutoffvoltage + (FULLY_CHARGED_VOLTAGE * numberOfCells))
