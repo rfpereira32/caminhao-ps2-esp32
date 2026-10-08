@@ -514,34 +514,12 @@ float batteryVoltage;
 uint8_t numberOfCells;
 bool batteryProtection = false;
 
-typedef struct PS3_bluetooth {
-  bool botaoTriangulo = 0;
-  bool botaoCirculo = 0;
-  bool botaoQuadrado = 0;
-  bool botaoX = 0;
-  bool botaoStart = 0;
-  bool botaoSelect = 0;
-  bool botaoCima = 0;
-  bool botaoEsquerda = 0;
-  bool botaoDireita = 0;
-  bool botaoBaixo = 0;
-  bool botaoR1 = 0;
-  bool botaoR2 = 0;
-  bool botaoR3 = 0;
-  bool botaoL1 = 0;
-  bool botaoL2 = 0;
-  bool botaoL3 = 0;
-  bool botaoPS3 = 0;
-  int8_t joyAX = 0;
-  int8_t joyAY = 0;
-  int8_t joyBX = 0;
-  int8_t joyBY = 0;
-} PS3_bluetooth;
-
 // ESP NOW variables for wireless trailer communication ----------------------------
 #if defined ENABLE_WIRELESS
 
 volatile uint16_t pollRate = 20;
+
+esp_now_peer_info_t peerInfo; // This MUST be global!! Transmission is not working otherwise!
 
 
 typedef struct struct_message
@@ -584,28 +562,38 @@ typedef struct struct_message2 {
 } struct_message2;
 
 
+typedef struct PS3_bluetooth {
+  bool botaoTriangulo = 0;
+  bool botaoCirculo = 0;
+  bool botaoQuadrado = 0;
+  bool botaoX = 0;
+  bool botaoStart = 0;
+  bool botaoSelect = 0;
+  bool botaoCima = 0;
+  bool botaoEsquerda = 0;
+  bool botaoDireita = 0;
+  bool botaoBaixo = 0;
+  bool botaoR1 = 0;
+  bool botaoR2 = 0;
+  bool botaoR3 = 0;
+  bool botaoL1 = 0;
+  bool botaoL2 = 0;
+  bool botaoL3 = 0;
+  bool botaoPS3 = 0;
+  int8_t joyAX = 0;
+  int8_t joyAY = 0;
+  int8_t joyBX = 0;
+  int8_t joyBY = 0;
+} PS3_bluetooth;
 
 // Create a struct_message called trailerData
 struct_message trailerData;
 struct_message2 controlePS3;
-PS3_bluetooth controlePS3;
+PS3_bluetooth controle1;
 
 #endif // --------------------------------------------------------------------------
 
-// PS3 bluetooth variables ----------------------------
-#if defined ENABLE_PS3_BLUETOOTH
 
-esp_now_peer_info_t peerInfo; // This MUST be global!! Transmission is not working otherwise!
-
- variables ----------------------------
-#if defined ENABLE_PS3_BLUETOOTH
-
-esp_now_peer_info_t peerInfo; // This MUST be global!! Transmission is not working otherwise!
-
-typedef struct PS3_bluetooth {
-  bool botaoTriangulo;
-  bool botaoCirculo;
-  bool botaoQuadrado----------------------------------------------------------------
 
 
 // The following variables are buffered in the eeprom an can be modified, using the web interface -----
@@ -1515,6 +1503,7 @@ void IRAM_ATTR fixedPlaybackTimer()
 //
 
 // Reference https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/rmt.html?highlight=rmt
+static void IRAM_ATTR rmt_isr_handler(void *arg) __attribute__((unused));
 static void IRAM_ATTR rmt_isr_handler(void *arg)
 {
 Serial.println("------ INTERRUPÇÃO -------");
@@ -2079,7 +2068,6 @@ void setup()
  
   // New: PWM read setup, using rmt. Thanks to croky-b
 */
-  uint8_t i;
 /*
   rmt_config_t rmt_channels[PWM_CHANNELS_NUM] = {};
 
@@ -3107,8 +3095,8 @@ void mcpwmOutput()
   }
 
   // Print servo signal debug infos **********************
-  static unsigned long printServoMillis;
 #ifdef SERVO_DEBUG // can slow down the playback loop!
+  static unsigned long printServoMillis;
   if (millis() - printServoMillis > 1000)
   { // Every 1000ms
     printServoMillis = millis();
@@ -4566,7 +4554,7 @@ Serial.println(batteryVoltage);
     if (batteryVoltage < batteryCutoffvoltage)
     {
       Serial.printf("Battery protection triggered, slowing down! Battery: %.2f V Threshold: %.2f V \n", batteryVoltage, batteryCutoffvoltage);
-      Serial.printf("Disconnect battery to prevent it from overdischarging!\n", batteryVoltage, batteryCutoffvoltage);
+      Serial.printf("Disconnect battery to prevent it from overdischarging!\n");
       batteryProtection = true;
     }
     if (batteryVoltage > batteryCutoffvoltage + (FULLY_CHARGED_VOLTAGE * numberOfCells))
