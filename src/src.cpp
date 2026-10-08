@@ -514,6 +514,30 @@ float batteryVoltage;
 uint8_t numberOfCells;
 bool batteryProtection = false;
 
+typedef struct PS3_bluetooth {
+  bool botaoTriangulo = 0;
+  bool botaoCirculo = 0;
+  bool botaoQuadrado = 0;
+  bool botaoX = 0;
+  bool botaoStart = 0;
+  bool botaoSelect = 0;
+  bool botaoCima = 0;
+  bool botaoEsquerda = 0;
+  bool botaoDireita = 0;
+  bool botaoBaixo = 0;
+  bool botaoR1 = 0;
+  bool botaoR2 = 0;
+  bool botaoR3 = 0;
+  bool botaoL1 = 0;
+  bool botaoL2 = 0;
+  bool botaoL3 = 0;
+  bool botaoPS3 = 0;
+  int8_t joyAX = 0;
+  int8_t joyAY = 0;
+  int8_t joyBX = 0;
+  int8_t joyBY = 0;
+} PS3_bluetooth;
+
 // ESP NOW variables for wireless trailer communication ----------------------------
 #if defined ENABLE_WIRELESS
 
@@ -560,29 +584,6 @@ typedef struct struct_message2 {
 } struct_message2;
 
 
-typedef struct PS3_bluetooth {
-  bool botaoTriangulo = 0;
-  bool botaoCirculo = 0;
-  bool botaoQuadrado = 0;
-  bool botaoX = 0;
-  bool botaoStart = 0;
-  bool botaoSelect = 0;
-  bool botaoCima = 0;
-  bool botaoEsquerda = 0;
-  bool botaoDireita = 0;
-  bool botaoBaixo = 0;
-  bool botaoR1 = 0;
-  bool botaoR2 = 0;
-  bool botaoR3 = 0;
-  bool botaoL1 = 0;
-  bool botaoL2 = 0;
-  bool botaoL3 = 0;
-  bool botaoPS3 = 0;
-  int8_t joyAX = 0;
-  int8_t joyAY = 0;
-  int8_t joyBX = 0;
-  int8_t joyBY = 0;
-} PS3_bluetooth;
 
 // Create a struct_message called trailerData
 struct_message trailerData;
@@ -592,6 +593,11 @@ PS3_bluetooth controlePS3;
 #endif // --------------------------------------------------------------------------
 
 // PS3 bluetooth variables ----------------------------
+#if defined ENABLE_PS3_BLUETOOTH
+
+esp_now_peer_info_t peerInfo; // This MUST be global!! Transmission is not working otherwise!
+
+ variables ----------------------------
 #if defined ENABLE_PS3_BLUETOOTH
 
 esp_now_peer_info_t peerInfo; // This MUST be global!! Transmission is not working otherwise!
