@@ -758,7 +758,7 @@ void setupPS3() {
   Ps3.begin("b8:27:eb:2c:da:39"); // MAC do controle PS3
 
   // Set device as a Wi-Fi Station
-  WiFi.mode(WIFI_STA);
+  WiFi.mode(WIFI_AP_STA);
 
   // Init ESP-NOW
 //  if (esp_now_init() != ESP_OK) {
