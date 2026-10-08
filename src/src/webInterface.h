@@ -575,6 +575,8 @@ void webInterface()
 
               //-----------------------------------------------------------------------------------------------------------------------
 
+              client.println("<br><a id=\"firmwareUpdateLink\" href=\"#\">Firmware update / Wi-Fi STA</a><br>");
+              client.println("<script>document.getElementById(\"firmwareUpdateLink\").href=\"http://\"+window.location.hostname+\":81/\";</script>");
               client.println("<br>More informations on my <a href=\"https://thediyguy999.github.io/TheDIYGuy999_ESP32_Web_Flasher/index.html\" target=\"_blank\">Website</a><br>");
 
               client.println("</body></html>");

@@ -103,6 +103,7 @@ char codeVersion[] = "9.12.0"; // Software revision.
 #include <Esp.h>    // for displaying memory information
 #include <EEPROM.h> // for non volatile variable storage
 #include <Ps3Controller.h>
+#include "src/otaUpdate.h"
 
 // This stuff is required for Visual Studio Code IDE, if .ino is renamed into .cpp!
 void Task1code(void *parameters);
@@ -1732,7 +1733,7 @@ void setupEspNow()
   Serial.printf("ENABLE_WIRELESS option enabled\n");
   // Serial.printf("Sound controller MAC address: %s\n", WiFi.macAddress().c_str());
   //  Set device as a Wi-Fi Station for ESP-NOW
-  WiFi.mode(WIFI_STA); // WIFI_STA = Station
+  WiFi.mode(WIFI_AP_STA); // Keep configuration AP active while connecting as a station
 
   // Set IP address
   IPAddress IP = WiFi.softAPIP();
@@ -1756,6 +1757,7 @@ void setupEspNow()
   Serial.printf("\nWiFi Tx Power Level changed to: %u\n\n", WiFi.getTxPower());
 
   server.begin(); // Start Webserver
+  beginFirmwareUpdate();
 
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK)
@@ -6127,6 +6129,7 @@ void loop()
 
   // Configuration website
   webInterface();
+  handleFirmwareUpdate();
 
   // Core ID debug
 #if defined CORE_DEBUG
