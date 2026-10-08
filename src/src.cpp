@@ -519,8 +519,6 @@ bool batteryProtection = false;
 
 volatile uint16_t pollRate = 20;
 
-esp_now_peer_info_t peerInfo; // This MUST be global!! Transmission is not working otherwise!
-
 
 typedef struct struct_message
 { // This is the data packet
@@ -589,7 +587,7 @@ typedef struct PS3_bluetooth {
 // Create a struct_message called trailerData
 struct_message trailerData;
 struct_message2 controlePS3;
-PS3_bluetooth controle1;
+PS3_bluetooth controlePS3;
 
 #endif // --------------------------------------------------------------------------
 
@@ -601,31 +599,7 @@ esp_now_peer_info_t peerInfo; // This MUST be global!! Transmission is not worki
 typedef struct PS3_bluetooth {
   bool botaoTriangulo;
   bool botaoCirculo;
-  bool botaoQuadrado;
-  bool botaoX;
-  bool botaoStart;
-  bool botaoSelect;
-  bool botaoCima;
-  bool botaoEsquerda;
-  bool botaoDireita;
-  bool botaoBaixo;
-  bool botaoR1;
-  bool botaoR2;
-  bool botaoR3;
-  bool botaoL1;
-  bool botaoL2;
-  bool botaoL3;
-  bool botaoPS3;
-  int8_t joyAX;
-  int8_t joyAY;
-  int8_t joyBX;
-  int8_t joyBY;
-} PS3_bluetooth;
-
-// Create a struct_message called controlePS3
-PS3_bluetooth controlePS3;
-
-#endif // --------------------------------------------------------------------------
+  bool botaoQuadrado----------------------------------------------------------------
 
 
 // The following variables are buffered in the eeprom an can be modified, using the web interface -----
