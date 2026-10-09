@@ -103,6 +103,8 @@ char codeVersion[] = "9.12.0"; // Software revision.
 #include <Esp.h>    // for displaying memory information
 #include <EEPROM.h> // for non volatile variable storage
 #include <Ps3Controller.h>
+bool pauseAudioTimersForFirmwareUpdate();
+void resumeAudioTimersAfterFirmwareUpdate();
 #include "src/otaUpdate.h"
 
 // This stuff is required for Visual Studio Code IDE, if .ino is renamed into .cpp!
@@ -268,23 +270,22 @@ WiFiServer server(80);
 // Global variables **********************************************************************
 
 // Variáveis para troca de estado do botão PS3 (valores fixos)
-  bool ligaPrimeiraVez = true;
-  bool AuxBotaoStart;
-  bool BotaoStart;
-  bool AuxBotaoCima;
-  bool BotaoCima;
-  bool AuxBotaoBaixo;
-  bool BotaoBaixo;
-  bool AuxBotaoEsquerda;
-  bool BotaoEsquerda;
-  bool AuxBotaoDireita;
-  bool BotaoDireita;
-  bool AuxBotaoTriangulo;
-  bool BotaoTriangulo;
-  bool AuxBotaoCirculo;
-  bool BotaoCirculo;
+bool ligaPrimeiraVez = true;
+bool AuxBotaoStart;
+bool BotaoStart;
+bool AuxBotaoCima;
+bool BotaoCima;
+bool AuxBotaoBaixo;
+bool BotaoBaixo;
+bool AuxBotaoEsquerda;
+bool BotaoEsquerda;
+bool AuxBotaoDireita;
+bool BotaoDireita;
+bool AuxBotaoTriangulo;
+bool BotaoTriangulo;
+bool AuxBotaoCirculo;
+bool BotaoCirculo;
 
-  
 // WiFi variables
 String ssid;
 String password;
@@ -293,7 +294,7 @@ String password;
 uint8_t customMACAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 // MAC address for communication with bluetooth PS3
-uint8_t broadcastAddress[] = { 0x08, 0xD1, 0xF9, 0xA5, 0x1E, 0x20 };
+uint8_t broadcastAddress[] = {0x08, 0xD1, 0xF9, 0xA5, 0x1E, 0x20};
 
 // HTTP request memory
 String header;
@@ -522,7 +523,6 @@ volatile uint16_t pollRate = 20;
 
 esp_now_peer_info_t peerInfo; // This MUST be global!! Transmission is not working otherwise!
 
-
 typedef struct struct_message
 { // This is the data packet
   uint8_t tailLight;
@@ -537,8 +537,8 @@ typedef struct struct_message
   bool beaconsOn;
 } struct_message;
 
-
-typedef struct struct_message2 {
+typedef struct struct_message2
+{
   bool botaoTriangulo;
   bool botaoCirculo;
   bool botaoQuadrado;
@@ -562,8 +562,8 @@ typedef struct struct_message2 {
   int8_t joyBY;
 } struct_message2;
 
-
-typedef struct PS3_bluetooth {
+typedef struct PS3_bluetooth
+{
   bool botaoTriangulo = 0;
   bool botaoCirculo = 0;
   bool botaoQuadrado = 0;
@@ -593,9 +593,6 @@ struct_message2 controlePS3;
 PS3_bluetooth controle1;
 
 #endif // --------------------------------------------------------------------------
-
-
-
 
 // The following variables are buffered in the eeprom an can be modified, using the web interface -----
 // 5th wheel switch enable / disable
@@ -668,6 +665,28 @@ volatile uint32_t variableTimerTicks = maxSampleInterval;
 hw_timer_t *fixedTimer = NULL;
 portMUX_TYPE fixedTimerMux = portMUX_INITIALIZER_UNLOCKED;
 volatile uint32_t fixedTimerTicks = maxSampleInterval;
+bool audioTimersRunning = false;
+
+bool pauseAudioTimersForFirmwareUpdate()
+{
+  if (!audioTimersRunning)
+    return false;
+
+  audioTimersRunning = false;
+  timerAlarmDisable(variableTimer);
+  timerAlarmDisable(fixedTimer);
+  return true;
+}
+
+void resumeAudioTimersAfterFirmwareUpdate()
+{
+  if (audioTimersRunning || variableTimer == NULL || fixedTimer == NULL)
+    return;
+
+  audioTimersRunning = true;
+  timerAlarmEnable(variableTimer);
+  timerAlarmEnable(fixedTimer);
+}
 
 // Declare a mutex Semaphore Handles.
 // It will be used to ensure only only one Task is accessing this resource at any time.
@@ -684,13 +703,13 @@ float us2degree(uint16_t value)
 }
 
 // callback when data is sent
-//void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+// void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 //    Serial.print("\r\nLast Packet Send Status:\t");
 //    Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 //}
 
-
-void notify() {
+void notify()
+{
 
   controlePS3.botaoX = Ps3.data.button.cross;
   controlePS3.botaoCirculo = Ps3.data.button.circle;
@@ -715,13 +734,15 @@ void notify() {
   controlePS3.joyBY = Ps3.data.analog.stick.ry;
 }
 
-void onConnect() {
+void onConnect()
+{
   Serial.println("Controle PS3 conectado!");
   Serial.print("MacAddress do ESP32: ");
   Serial.println(WiFi.macAddress());
 }
 
-void setupPS3() {
+void setupPS3()
+{
   Ps3.attach(notify);
   Ps3.attachOnConnect(onConnect);
   Ps3.begin("b8:27:eb:2c:da:39"); // MAC do controle PS3
@@ -730,14 +751,14 @@ void setupPS3() {
   WiFi.mode(WIFI_AP_STA);
 
   // Init ESP-NOW
-//  if (esp_now_init() != ESP_OK) {
-//    Serial.println("Error initializing ESP-NOW");
-//    return;
-//  }
+  //  if (esp_now_init() != ESP_OK) {
+  //    Serial.println("Error initializing ESP-NOW");
+  //    return;
+  //  }
 
   // Once ESPNow is successfully Init, we will register for Send CB to
   // get the status of Transmitted packet
-//  esp_now_register_send_cb(OnDataSent);
+  //  esp_now_register_send_cb(OnDataSent);
 
   // Register peer
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
@@ -745,12 +766,12 @@ void setupPS3() {
   peerInfo.encrypt = false;
 
   // Add peer
-  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+  if (esp_now_add_peer(&peerInfo) != ESP_OK)
+  {
     Serial.println("Failed to add peer");
     return;
   }
 }
-
 
 //
 // =======================================================================================================
@@ -771,8 +792,8 @@ void IRAM_ATTR variablePlaybackTimer()
   static uint32_t curChargerSample = 0;         // Index of currently loaded charger sample
   static uint32_t curStartSample = 0;           // Index of currently loaded start sample
   static uint32_t curJakeBrakeSample = 0;       // Index of currently loaded jake brake sample
-//  static uint32_t curHydraulicPumpSample = 0;   // Index of currently loaded hydraulic pump sample
-//  static uint32_t curTrackRattleSample = 0;     // Index of currently loaded train track rattle sample
+                                                //  static uint32_t curHydraulicPumpSample = 0;   // Index of currently loaded hydraulic pump sample
+                                                //  static uint32_t curTrackRattleSample = 0;     // Index of currently loaded train track rattle sample
   static uint32_t lastDieselKnockSample = 0;    // Index of last Diesel knock sample
   static uint16_t attenuator = 0;               // Used for volume adjustment during engine switch off
   static uint16_t speedPercentage = 0;          // slows the engine down during shutdown
@@ -1056,10 +1077,10 @@ void IRAM_ATTR fixedPlaybackTimer()
   static uint32_t curDieselKnockSample = 0;                     // Index of currently loaded Diesel knock sample
   static uint32_t curCouplingSample = 0;                        // Index of currently loaded trailer coupling sample
   static uint32_t curUncouplingSample = 0;                      // Index of currently loaded trailer uncoupling sample
-//  static uint32_t curHydraulicFlowSample = 0;                   // Index of currently loaded hydraulic flow sample
-//  static uint32_t curTrackRattleSample = 0;                     // Index of currently loaded track rattle sample
-//  static uint32_t curBucketRattleSample = 0;                    // Index of currently loaded bucket rattle sample
-//  static uint32_t curTireSquealSample = 0;                      // Index of currently loaded tire squeal sample
+                                                                //  static uint32_t curHydraulicFlowSample = 0;                   // Index of currently loaded hydraulic flow sample
+                                                                //  static uint32_t curTrackRattleSample = 0;                     // Index of currently loaded track rattle sample
+                                                                //  static uint32_t curBucketRattleSample = 0;                    // Index of currently loaded bucket rattle sample
+                                                                //  static uint32_t curTireSquealSample = 0;                      // Index of currently loaded tire squeal sample
   static uint32_t curOutOfFuelSample = 0;                       // Index of currently loaded out of fuel sample
   static int32_t a, a1, a2 = 0;                                 // Input signals "a" for mixer
   static int32_t b, b0, b1, b2, b3, b4, b5, b6, b7, b8, b9 = 0; // Input signals "b" for mixer
@@ -1507,7 +1528,7 @@ void IRAM_ATTR fixedPlaybackTimer()
 static void IRAM_ATTR rmt_isr_handler(void *arg) __attribute__((unused));
 static void IRAM_ATTR rmt_isr_handler(void *arg)
 {
-Serial.println("------ INTERRUPÇÃO -------");
+  Serial.println("------ INTERRUPÇÃO -------");
   uint32_t intr_st = RMT.int_st.val;
 
   static uint32_t lastFrameTime = millis();
@@ -1616,9 +1637,10 @@ void IRAM_ATTR trailerPresenceSwitchInterrupt()
 //
 
 // callback function that will be executed when data is received
-void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-//  memcpy(&myData, incomingData, sizeof(myData));
-//  memcpy(&controlePS3, incomingData, sizeof(controlePS3));
+void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
+{
+  //  memcpy(&myData, incomingData, sizeof(myData));
+  //  memcpy(&controlePS3, incomingData, sizeof(controlePS3));
 }
 
 // callback when data is sent
@@ -1770,7 +1792,6 @@ void setupEspNow()
   esp_now_register_send_cb(onTrailerDataSent); // TODO, optional
   esp_now_register_recv_cb(OnDataRecv);
 
-
   // Register peer
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
@@ -1832,17 +1853,17 @@ void setupBattery()
   Serial.printf("Fully charged voltage per cell: %.2f V\n", FULLY_CHARGED_VOLTAGE);
 
 #define CELL_SETPOINT (CUTOFF_VOLTAGE - ((FULLY_CHARGED_VOLTAGE - CUTOFF_VOLTAGE) / 2))
-/* COMENTADO PARA NAO DETECTAR AUTOMATICAMENTE NUMERO DE CELULAS
-  if (batteryVolts() <= CELL_SETPOINT * 2)
-    numberOfCells = 1;
-  if (batteryVolts() > CELL_SETPOINT * 2)
-    numberOfCells = 2;
-  if (batteryVolts() > CELL_SETPOINT * 3)
-    numberOfCells = 3;
-  if (batteryVolts() > FULLY_CHARGED_VOLTAGE * 3)
-    numberOfCells = 4;
-    */
-   numberOfCells = 2; // AJUSTE MANUAL PARA 2 CELULAS
+  /* COMENTADO PARA NAO DETECTAR AUTOMATICAMENTE NUMERO DE CELULAS
+    if (batteryVolts() <= CELL_SETPOINT * 2)
+      numberOfCells = 1;
+    if (batteryVolts() > CELL_SETPOINT * 2)
+      numberOfCells = 2;
+    if (batteryVolts() > CELL_SETPOINT * 3)
+      numberOfCells = 3;
+    if (batteryVolts() > FULLY_CHARGED_VOLTAGE * 3)
+      numberOfCells = 4;
+      */
+  numberOfCells = 2;                                     // AJUSTE MANUAL PARA 2 CELULAS
   batteryCutoffvoltage = CUTOFF_VOLTAGE * numberOfCells; // Calculate cutoff voltage for battery protection
   if (numberOfCells > 1 && numberOfCells < 4)
   { // Only 2S & 3S batteries are supported!
@@ -1908,6 +1929,8 @@ void setupEeprom()
 
 void setup()
 {
+  inspectFirmwareRollbackState();
+
   // Watchdog timers need to be disabled, if task 1 is running without delay(1)
   disableCore0WDT();
   // disableCore1WDT(); // Core 1 WDT can stay enabled TODO
@@ -2062,35 +2085,35 @@ void setup()
 #define PWM_COMMUNICATION
   if (MAX_RPM_PERCENTAGE > maxPwmRpmPercentage)
     MAX_RPM_PERCENTAGE = maxPwmRpmPercentage; // Limit RPM range
-/* COMENTEI
- for (uint8_t i = 0; i < PWM_CHANNELS_NUM; i++)
-  {
-    pinMode(PWM_PINS[i], INPUT_PULLDOWN);
-  }
- 
-  // New: PWM read setup, using rmt. Thanks to croky-b
-*/
-/*
-  rmt_config_t rmt_channels[PWM_CHANNELS_NUM] = {};
+                                              /* COMENTEI
+                                               for (uint8_t i = 0; i < PWM_CHANNELS_NUM; i++)
+                                                {
+                                                  pinMode(PWM_PINS[i], INPUT_PULLDOWN);
+                                                }
+                                            
+                                                // New: PWM read setup, using rmt. Thanks to croky-b
+                                              */
+  /*
+    rmt_config_t rmt_channels[PWM_CHANNELS_NUM] = {};
 
-  for (i = 0; i < PWM_CHANNELS_NUM; i++)
-  {
-    rmt_channels[i].channel = (rmt_channel_t)PWM_CHANNELS[i];
-    rmt_channels[i].gpio_num = (gpio_num_t)PWM_PINS[i];
-    rmt_channels[i].clk_div = RMT_RX_CLK_DIV;
-    rmt_channels[i].mem_block_num = 1;
-    rmt_channels[i].rmt_mode = RMT_MODE_RX;
-    rmt_channels[i].rx_config.filter_en = true;
-    rmt_channels[i].rx_config.filter_ticks_thresh = 100; // Pulses shorter than this will be filtered out
-    rmt_channels[i].rx_config.idle_threshold = RMT_RX_MAX_US * RMT_TICK_PER_US;
+    for (i = 0; i < PWM_CHANNELS_NUM; i++)
+    {
+      rmt_channels[i].channel = (rmt_channel_t)PWM_CHANNELS[i];
+      rmt_channels[i].gpio_num = (gpio_num_t)PWM_PINS[i];
+      rmt_channels[i].clk_div = RMT_RX_CLK_DIV;
+      rmt_channels[i].mem_block_num = 1;
+      rmt_channels[i].rmt_mode = RMT_MODE_RX;
+      rmt_channels[i].rx_config.filter_en = true;
+      rmt_channels[i].rx_config.filter_ticks_thresh = 100; // Pulses shorter than this will be filtered out
+      rmt_channels[i].rx_config.idle_threshold = RMT_RX_MAX_US * RMT_TICK_PER_US;
 
-    rmt_config(&rmt_channels[i]);
-    rmt_set_rx_intr_en(rmt_channels[i].channel, true);
-    rmt_rx_start(rmt_channels[i].channel, 1);
-  }
+      rmt_config(&rmt_channels[i]);
+      rmt_set_rx_intr_en(rmt_channels[i].channel, true);
+      rmt_rx_start(rmt_channels[i].channel, 1);
+    }
 
-  rmt_isr_register(rmt_isr_handler, NULL, 0, NULL); // This is our interrupt
-*/
+    rmt_isr_register(rmt_isr_handler, NULL, 0, NULL); // This is our interrupt
+  */
   setupMcpwm();
 
 #endif // -----------------------------------------------------------
@@ -2126,12 +2149,13 @@ void setup()
   timerAttachInterrupt(fixedTimer, &fixedPlaybackTimer, true); // edge (not level) triggered
   timerAlarmWrite(fixedTimer, fixedTimerTicks, true);          // autoreload true
   timerAlarmEnable(fixedTimer);                                // enable
+  audioTimersRunning = true;
 
   // wait for RC receiver to initialize
   while (millis() <= 1000)
     ;
 
-    // Read RC signals for the first time (used for offset calculations)
+  // Read RC signals for the first time (used for offset calculations)
 #if defined SBUS_COMMUNICATION
   sbusInit = false;
   Serial.printf("Initializing SBUS (sbusInverted = %s, needs to be true for most standard radios) ...\n", sbusInverted ? "true" : "false");
@@ -2239,7 +2263,7 @@ void readPwmSignals()
 
   static uint32_t lastFrameTime = millis();
 
-//  if (millis() - lastFrameTime > 1)
+  //  if (millis() - lastFrameTime > 1)
   if (millis() - lastFrameTime > 20)
   { // Only do it every 20ms
     // measure RC signal pulsewidth:
@@ -2252,229 +2276,257 @@ void readPwmSignals()
     // See if we can obtain or "Take" the Semaphore.
     // If the semaphore is not available, wait 1 ticks of the Scheduler to see if it becomes free.
 
-/*
-    if (xSemaphoreTake(xPwmSemaphore, portMAX_DELAY))
-    {
-      // We were able to obtain or "Take" the semaphore and can now access the shared resource.
-      // We want to have the pwmBuf variable for us alone,
-      // so we don't want it getting stolen during the middle of a conversion.
+    /*
+        if (xSemaphoreTake(xPwmSemaphore, portMAX_DELAY))
+        {
+          // We were able to obtain or "Take" the semaphore and can now access the shared resource.
+          // We want to have the pwmBuf variable for us alone,
+          // so we don't want it getting stolen during the middle of a conversion.
 
-      for (uint8_t i = 1; i < PWM_CHANNELS_NUM + 1; i++)
-      {
-        if (pwmBuf[i] > 500 && pwmBuf[i] < 2500)
-          pulseWidthRaw[i] = pwmBuf[i]; // Only take valid signals!
-*/
+          for (uint8_t i = 1; i < PWM_CHANNELS_NUM + 1; i++)
+          {
+            if (pwmBuf[i] > 500 && pwmBuf[i] < 2500)
+              pulseWidthRaw[i] = pwmBuf[i]; // Only take valid signals!
+    */
 
+    pulseWidthRaw[1] = map(controlePS3.joyBX, -127, 127, 1000, 2000); // CH1: (steering)
+                                                                      /*Serial.print("joyBX: ");
+                                                                      Serial.print(controlePS3.joyBX);
+                                                                      Serial.print("    pulseWidthRaw[1]: ");
+                                                                      Serial.println(pulseWidthRaw[1]);
+                                                                      */
+    pulseWidthRaw[2] = 1500;                                          // CH2: (gearbox) (left throttle in TRACKED_MODE)
 
-          pulseWidthRaw[1] = map(controlePS3.joyBX, -127, 127, 1000, 2000); // CH1: (steering)
-/*Serial.print("joyBX: ");
-Serial.print(controlePS3.joyBX);
-Serial.print("    pulseWidthRaw[1]: ");
-Serial.println(pulseWidthRaw[1]);
-*/
-          pulseWidthRaw[2] = 1500; // CH2: (gearbox) (left throttle in TRACKED_MODE)
+    pulseWidthRaw[3] = map(controlePS3.joyAY, -127, 127, 2000, 1000); // CH3: (throttle) (right throttle in TRACKED_MODE)
 
-          pulseWidthRaw[3] = map(controlePS3.joyAY, -127, 127, 2000, 1000); // CH3: (throttle) (right throttle in TRACKED_MODE)
-
-          if (controlePS3.botaoX) { // CH4: (horn and bluelight / siren)
-            pulseWidthRaw[4] = 2000;
-          } else {
-              pulseWidthRaw[4] = 1500; 
-            }
-          
-          if (controlePS3.botaoCima) {// CH5: (high / low beam, transmission neutral, jake brake etc.)
-            pulseWidthRaw[5] = 2000;
-          } else {
-              pulseWidthRaw[5] = 1500;
-          }
-          
-
-/*          if (controlePS3.botaoQuadrado) {
-            pulseWidthRaw[6] = 2000;
-          } else {
-              pulseWidthRaw[6] = 1500;
-          }
-*/
-
-          if (controlePS3.botaoCima) {
-            if (AuxBotaoCima == LOW) {
-              AuxBotaoCima = HIGH;
-              BotaoCima = !BotaoCima;
-            }
-          } else {
-              AuxBotaoCima = LOW;
-          }
-
-          if (controlePS3.botaoBaixo) {
-            if (AuxBotaoBaixo == LOW) {
-              AuxBotaoBaixo = HIGH;
-              BotaoBaixo = !BotaoBaixo;
-            }
-          } else {
-              AuxBotaoBaixo = LOW;
-          }
-/*          if(BotaoCima)
-              pulseWidthRaw[8] = 2000;
-          else
-              pulseWidthRaw[8] = 1000;
-*/          
-
-/*          if (controlePS3.botaoCirculo) {
-            pulseWidthRaw[9] = 2000;
-          } else {
-              pulseWidthRaw[9] = 1500;
-          }
-*/
-
-
-          if (controlePS3.botaoCirculo) { 
-            if (AuxBotaoCirculo == LOW) {
-              AuxBotaoCirculo = HIGH;
-              BotaoCirculo = !BotaoCirculo;
-            }
-          } else {
-              AuxBotaoCirculo = LOW;
-          }
-          if(BotaoCirculo)
-              pulseWidthRaw[9] = 2000;
-          else
-              pulseWidthRaw[9] = 1000;
-
-
-          if (controlePS3.botaoStart) {
-            if (AuxBotaoStart == LOW) {
-              AuxBotaoStart = HIGH;
-              BotaoStart = !BotaoStart;
-            }
-          } else {
-              AuxBotaoStart = LOW;
-            }
-          if(BotaoStart)
-              pulseWidthRaw[10] = 2000;
-          else
-              pulseWidthRaw[10] = 1500;
-
-
-          if (controlePS3.botaoTriangulo) { // CH6: (indicators, hazards)
-            if (AuxBotaoTriangulo == LOW) {
-              AuxBotaoTriangulo = HIGH;
-              BotaoTriangulo = !BotaoTriangulo;
-            }
-          } else {
-              AuxBotaoTriangulo = LOW;
-          }
-          if(BotaoTriangulo)
-              pulseWidthRaw[11] = 2000;
-          else
-              pulseWidthRaw[11] = 1000;
-
-
-          if (controlePS3.botaoQuadrado)
-              pulseWidthRaw[12] = 2000;
-          else
-              pulseWidthRaw[12] = 1000;
-
-/*          if(BotaoQuadrado)
-              pulseWidthRaw[12] = 2000;
-          else
-              pulseWidthRaw[12] = 1000;
-
-
-          if (controlePS3.botaoBaixo) {
-            pulseWidthRaw[12] = 2000;
-          } else {
-              pulseWidthRaw[12] = 1500;
-          }
-*/
-
-//=================== TESTE DE LUZES ===================
-
-          if (controlePS3.botaoEsquerda) {
-            if (AuxBotaoEsquerda == LOW) {
-              AuxBotaoEsquerda = HIGH;
-              BotaoEsquerda = !BotaoEsquerda;
-            if (luzDeTeste > 0){
-              luzDeTeste = luzDeTeste - 1;
-              Serial.print("luzDeTeste: ");
-              Serial.println(luzDeTeste);
-            }
-            }
-          } else {
-              AuxBotaoEsquerda = LOW;
-          }
-
-          if (controlePS3.botaoDireita) {
-            if (AuxBotaoDireita == LOW) {
-              AuxBotaoDireita = HIGH;
-              BotaoDireita = !BotaoDireita;
-            if (luzDeTeste < 255){
-              luzDeTeste = luzDeTeste + 1;
-              Serial.print("luzDeTeste: ");
-              Serial.println(luzDeTeste);
-            }
-            }
-          } else {
-              AuxBotaoDireita = LOW;
-          }
-//          brilhoLado = luzDeTeste;
-//=================== FIM TESTE DE LUZES ===================
-  
-
-
-/* 
-      }
-
-      xSemaphoreGive(xPwmSemaphore); // Now free or "Give" the semaphore for others.
+    if (controlePS3.botaoX)
+    { // CH4: (horn and bluelight / siren)
+      pulseWidthRaw[4] = 2000;
     }
- */   
-/*
-Serial.print("pulseWidthRaw1: ");
-Serial.print(pulseWidthRaw[1]);
-Serial.print("  pulseWidthRaw2: ");
-Serial.print(pulseWidthRaw[2]);
-Serial.print("  pulseWidthRaw3: ");
-Serial.println(pulseWidthRaw[3]);
-Serial.print("  pulseWidthRaw4: ");
-Serial.print(pulseWidthRaw[4]);
-Serial.print("  pulseWidthRaw5: ");
-Serial.println(pulseWidthRaw[5]);
-*/
+    else
+    {
+      pulseWidthRaw[4] = 1500;
+    }
+
+    if (controlePS3.botaoCima)
+    { // CH5: (high / low beam, transmission neutral, jake brake etc.)
+      pulseWidthRaw[5] = 2000;
+    }
+    else
+    {
+      pulseWidthRaw[5] = 1500;
+    }
+
+    /*          if (controlePS3.botaoQuadrado) {
+                pulseWidthRaw[6] = 2000;
+              } else {
+                  pulseWidthRaw[6] = 1500;
+              }
+    */
+
+    if (controlePS3.botaoCima)
+    {
+      if (AuxBotaoCima == LOW)
+      {
+        AuxBotaoCima = HIGH;
+        BotaoCima = !BotaoCima;
+      }
+    }
+    else
+    {
+      AuxBotaoCima = LOW;
+    }
+
+    if (controlePS3.botaoBaixo)
+    {
+      if (AuxBotaoBaixo == LOW)
+      {
+        AuxBotaoBaixo = HIGH;
+        BotaoBaixo = !BotaoBaixo;
+      }
+    }
+    else
+    {
+      AuxBotaoBaixo = LOW;
+    }
+    /*          if(BotaoCima)
+                  pulseWidthRaw[8] = 2000;
+              else
+                  pulseWidthRaw[8] = 1000;
+    */
+
+    /*          if (controlePS3.botaoCirculo) {
+                pulseWidthRaw[9] = 2000;
+              } else {
+                  pulseWidthRaw[9] = 1500;
+              }
+    */
+
+    if (controlePS3.botaoCirculo)
+    {
+      if (AuxBotaoCirculo == LOW)
+      {
+        AuxBotaoCirculo = HIGH;
+        BotaoCirculo = !BotaoCirculo;
+      }
+    }
+    else
+    {
+      AuxBotaoCirculo = LOW;
+    }
+    if (BotaoCirculo)
+      pulseWidthRaw[9] = 2000;
+    else
+      pulseWidthRaw[9] = 1000;
+
+    if (controlePS3.botaoStart)
+    {
+      if (AuxBotaoStart == LOW)
+      {
+        AuxBotaoStart = HIGH;
+        BotaoStart = !BotaoStart;
+      }
+    }
+    else
+    {
+      AuxBotaoStart = LOW;
+    }
+    if (BotaoStart)
+      pulseWidthRaw[10] = 2000;
+    else
+      pulseWidthRaw[10] = 1500;
+
+    if (controlePS3.botaoTriangulo)
+    { // CH6: (indicators, hazards)
+      if (AuxBotaoTriangulo == LOW)
+      {
+        AuxBotaoTriangulo = HIGH;
+        BotaoTriangulo = !BotaoTriangulo;
+      }
+    }
+    else
+    {
+      AuxBotaoTriangulo = LOW;
+    }
+    if (BotaoTriangulo)
+      pulseWidthRaw[11] = 2000;
+    else
+      pulseWidthRaw[11] = 1000;
+
+    if (controlePS3.botaoQuadrado)
+      pulseWidthRaw[12] = 2000;
+    else
+      pulseWidthRaw[12] = 1000;
+
+    /*          if(BotaoQuadrado)
+                  pulseWidthRaw[12] = 2000;
+              else
+                  pulseWidthRaw[12] = 1000;
+
+
+              if (controlePS3.botaoBaixo) {
+                pulseWidthRaw[12] = 2000;
+              } else {
+                  pulseWidthRaw[12] = 1500;
+              }
+    */
+
+    //=================== TESTE DE LUZES ===================
+
+    if (controlePS3.botaoEsquerda)
+    {
+      if (AuxBotaoEsquerda == LOW)
+      {
+        AuxBotaoEsquerda = HIGH;
+        BotaoEsquerda = !BotaoEsquerda;
+        if (luzDeTeste > 0)
+        {
+          luzDeTeste = luzDeTeste - 1;
+          Serial.print("luzDeTeste: ");
+          Serial.println(luzDeTeste);
+        }
+      }
+    }
+    else
+    {
+      AuxBotaoEsquerda = LOW;
+    }
+
+    if (controlePS3.botaoDireita)
+    {
+      if (AuxBotaoDireita == LOW)
+      {
+        AuxBotaoDireita = HIGH;
+        BotaoDireita = !BotaoDireita;
+        if (luzDeTeste < 255)
+        {
+          luzDeTeste = luzDeTeste + 1;
+          Serial.print("luzDeTeste: ");
+          Serial.println(luzDeTeste);
+        }
+      }
+    }
+    else
+    {
+      AuxBotaoDireita = LOW;
+    }
+    //          brilhoLado = luzDeTeste;
+    //=================== FIM TESTE DE LUZES ===================
+
+    /*
+          }
+
+          xSemaphoreGive(xPwmSemaphore); // Now free or "Give" the semaphore for others.
+        }
+     */
+    /*
+    Serial.print("pulseWidthRaw1: ");
+    Serial.print(pulseWidthRaw[1]);
+    Serial.print("  pulseWidthRaw2: ");
+    Serial.print(pulseWidthRaw[2]);
+    Serial.print("  pulseWidthRaw3: ");
+    Serial.println(pulseWidthRaw[3]);
+    Serial.print("  pulseWidthRaw4: ");
+    Serial.print(pulseWidthRaw[4]);
+    Serial.print("  pulseWidthRaw5: ");
+    Serial.println(pulseWidthRaw[5]);
+    */
     // Normalize, auto zero and reverse channels
     processRawChannels();
 
-/*
-Serial.print("pw1: ");
-Serial.print(pulseWidth[1]);
-Serial.print("  pw2: ");
-Serial.print(pulseWidth[2]);
-Serial.print("  pw3: ");
-Serial.print(pulseWidth[3]);
-Serial.print("  pw4: ");
-Serial.print(pulseWidth[4]);
-Serial.print("  pw5: ");
-Serial.print(pulseWidth[5]);
-Serial.print("  pw6: ");
-Serial.print(pulseWidth[6]);
-Serial.print("  pw7: ");
-Serial.println(pulseWidth[7]);
-Serial.print("  pw8: ");
-Serial.print(pulseWidth[8]);
-Serial.print("  pw9: ");
-Serial.print(pulseWidth[9]);
-Serial.print("  pw10: ");
-Serial.println(pulseWidth[10]);
-*/
+    /*
+    Serial.print("pw1: ");
+    Serial.print(pulseWidth[1]);
+    Serial.print("  pw2: ");
+    Serial.print(pulseWidth[2]);
+    Serial.print("  pw3: ");
+    Serial.print(pulseWidth[3]);
+    Serial.print("  pw4: ");
+    Serial.print(pulseWidth[4]);
+    Serial.print("  pw5: ");
+    Serial.print(pulseWidth[5]);
+    Serial.print("  pw6: ");
+    Serial.print(pulseWidth[6]);
+    Serial.print("  pw7: ");
+    Serial.println(pulseWidth[7]);
+    Serial.print("  pw8: ");
+    Serial.print(pulseWidth[8]);
+    Serial.print("  pw9: ");
+    Serial.print(pulseWidth[9]);
+    Serial.print("  pw10: ");
+    Serial.println(pulseWidth[10]);
+    */
 
     // Failsafe for RC signals
     failSafe = (pulseWidthRaw[3] < 500 || pulseWidthRaw[3] > 2500);
     failsafeRcSignals();
 
     lastFrameTime = millis();
-  
-  } else
-      {
-        xSemaphoreGive(xPwmSemaphore); // Free or "Give" the semaphore for others, if not required!
-    }
+  }
+  else
+  {
+    xSemaphoreGive(xPwmSemaphore); // Free or "Give" the semaphore for others, if not required!
+  }
 }
 
 //
@@ -2694,7 +2746,7 @@ void processRawChannels()
   static unsigned long lastOutOfRangeMillis;
   static int channel;
   static bool exThrottlePrint;
-//  static bool exSteeringPrint;
+  //  static bool exSteeringPrint;
 
 #ifdef TRACKED_MODE // If tracked mode: enable CH2 auto zero adjustment as well, if it is enabled for CH3
   if (channelAutoZero[3])
@@ -2709,16 +2761,16 @@ void processRawChannels()
   {
     for (uint8_t i = 1; i < PULSE_ARRAY_SIZE; i++)
     { // For each channel:
-//    Serial.println("processRawChannels: ");
-/*    Serial.print("pulseWidthRaw[4]: ");
-    Serial.println(pulseWidthRaw[4]);
-    Serial.print("pulseWidth[4]: ");
-    Serial.println(pulseWidth[4]);
-    Serial.print("channelAutoZero[3]: ");
-    Serial.println(channelAutoZero[3]);
-    Serial.print("autoZeroDone: ");
-    Serial.println(autoZeroDone);
-    Serial.println(pulseWidthRaw[i]);*/
+      //    Serial.println("processRawChannels: ");
+      /*    Serial.print("pulseWidthRaw[4]: ");
+          Serial.println(pulseWidthRaw[4]);
+          Serial.print("pulseWidth[4]: ");
+          Serial.println(pulseWidth[4]);
+          Serial.print("channelAutoZero[3]: ");
+          Serial.println(channelAutoZero[3]);
+          Serial.print("autoZeroDone: ");
+          Serial.println(autoZeroDone);
+          Serial.println(pulseWidthRaw[i]);*/
       // Position valid for auto calibration? Must be between 1400 and 1600 microseconds
       if (channelAutoZero[i] && !autoZeroDone && (pulseWidthRaw[i] > 1600 || pulseWidthRaw[i] < 1400))
       {
@@ -2804,7 +2856,6 @@ void processRawChannels()
       if (i == PULSE_ARRAY_SIZE - 1)
         autoZeroDone = true;
     }
-
   }
 
   if (!autoZeroDone)
@@ -2993,7 +3044,7 @@ void mcpwmOutput()
         steeringServoMicrosDelayed -= steeringDeviation;
       steeringServoMicrosDelayed = constrain(steeringServoMicrosDelayed, min(CH1L, CH1R), max(CH1L, CH1R));
 
-     mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, steeringServoMicrosDelayed);
+      mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, steeringServoMicrosDelayed);
     }
 
     // Shifting CH2 **********************
@@ -3022,7 +3073,6 @@ void mcpwmOutput()
     }
 #endif
     mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, shiftingServoMicros);
-
 
     // Winch CH3 **********************
 #if defined NO_WINCH_DELAY
@@ -3064,7 +3114,7 @@ void mcpwmOutput()
     }
 
     // Switching modes
-//    static uint16_t beaconServoMicros;
+    //    static uint16_t beaconServoMicros;
     static bool lockRotating, lockOff;
     if (blueLightInit)
     {
@@ -3131,6 +3181,7 @@ void mcpwmOutput()
 void disableAllInterrupts()
 {
 
+  audioTimersRunning = false;
   timerDetachInterrupt(variableTimer);
   timerDetachInterrupt(fixedTimer);
 
@@ -3466,17 +3517,17 @@ void mapThrottle()
     }
   }
 
-/*   int8_t x = controlePS3.joyAY;
-//   Serial.print("x: ");
-//   Serial.println(x);
-   if(x < 0){
-    currentThrottle = map(x, -127, 0, 500, 0);
-   } else{
-        currentThrottle = 0;
-   }
-*/
-//   Serial.print("currentThrottle: ");
-//   Serial.println(currentThrottle);
+  /*   int8_t x = controlePS3.joyAY;
+  //   Serial.print("x: ");
+  //   Serial.println(x);
+     if(x < 0){
+      currentThrottle = map(x, -127, 0, 500, 0);
+     } else{
+          currentThrottle = 0;
+     }
+  */
+  //   Serial.print("currentThrottle: ");
+  //   Serial.println(currentThrottle);
 
 #endif
 
@@ -3497,7 +3548,7 @@ void mapThrottle()
 
   // As a base for some calculations below, fade the current throttle to make it more natural
   static unsigned long throttleFaderMicros;
-//  static boolean blowoffLock;
+  //  static boolean blowoffLock;
   if (micros() - throttleFaderMicros > 500)
   { // Every 0.5ms
     throttleFaderMicros = micros();
@@ -3582,9 +3633,9 @@ void mapThrottle()
       rpmDependentWastegateVolume = wastegateIdleVolumePercentage;
   }
 
-//Serial.print();
-//Serial.print();
-  // Calculate engine load (used for torque converter slip simulation)
+  // Serial.print();
+  // Serial.print();
+  //  Calculate engine load (used for torque converter slip simulation)
   engineLoad = currentThrottle - currentRpm;
 
   if (engineLoad < 0 || escIsBraking || brakeDetect)
@@ -3596,7 +3647,7 @@ void mapThrottle()
 
   // Tire squealing ----
   uint8_t steeringAngle = 0;
-//  uint8_t brakeSquealVolume = 0;
+  //  uint8_t brakeSquealVolume = 0;
 
   // Cornering squealing
   if (pulseWidth[1] < 1500)
@@ -3633,7 +3684,7 @@ void engineMassSimulation()
   uint16_t converterSlip;
   static unsigned long throtMillis;
   static unsigned long wastegateMillis;
-//  static unsigned long blowoffMillis;
+  //  static unsigned long blowoffMillis;
   uint8_t timeBase;
 
 #ifdef SUPER_SLOW
@@ -3651,7 +3702,7 @@ void engineMassSimulation()
     if (_currentThrottle > 500)
       _currentThrottle = 500;
 
-      // Virtual clutch **********************************************************************************
+    // Virtual clutch **********************************************************************************
 #if defined EXCAVATOR_MODE // Excavator mode ---
     clutchDisengaged = true;
 
@@ -3680,22 +3731,24 @@ void engineMassSimulation()
       else
         converterSlip = engineLoad * torqueconverterSlipPercentage / 100;
 
-/*Serial.print("converterSlip: ");
-Serial.println(converterSlip);
-Serial.print("neutralGear: ");
-Serial.println(neutralGear);*/
+      /*Serial.print("converterSlip: ");
+      Serial.println(converterSlip);
+      Serial.print("neutralGear: ");
+      Serial.println(neutralGear);*/
 
-      if (!neutralGear){
+      if (!neutralGear)
+      {
         targetRpm = currentSpeed * gearRatio[selectedAutomaticGear] / 10 + converterSlip; // Compute engine RPM
-/*Serial.print("currentSpeed: ");
-Serial.print(currentSpeed);
-Serial.print("   gearRatio: ");
-Serial.print(gearRatio[selectedAutomaticGear]);
-Serial.print("   converterSlip: ");
-Serial.print(converterSlip);
-Serial.println("");*/
-//delay(200);
-            }      else
+                                                                                          /*Serial.print("currentSpeed: ");
+                                                                                          Serial.print(currentSpeed);
+                                                                                          Serial.print("   gearRatio: ");
+                                                                                          Serial.print(gearRatio[selectedAutomaticGear]);
+                                                                                          Serial.print("   converterSlip: ");
+                                                                                          Serial.print(converterSlip);
+                                                                                          Serial.println("");*/
+                                                                                          // delay(200);
+      }
+      else
         targetRpm = reMap(curveLinear, _currentThrottle);
     }
     else if (doubleClutch)
@@ -3719,7 +3772,7 @@ Serial.println("");*/
 #endif
       }
       else
-      {                                                                                             // Clutch engaged: Engine rpm synchronized with ESC power (speed)
+      { // Clutch engaged: Engine rpm synchronized with ESC power (speed)
 
 #if defined VIRTUAL_3_SPEED || defined VIRTUAL_16_SPEED_SEQUENTIAL // Virtual 3 speed or sequential 16 speed transmission
         targetRpm = reMap(curveLinear, (currentSpeed * virtualManualGearRatio[selectedGear] / 10)); // Add virtual gear ratios
@@ -3748,12 +3801,16 @@ Serial.println("");*/
     {
       if (!airBrakeTrigger)
       { // No acceleration, if brake release noise still playing
-        if (!gearDownShiftingInProgress){
-//        Serial.println("entrou 5");
-          _currentRpm += acc;}
-        else{
-        Serial.println("entrou 6");}
-          _currentRpm += acc / 2; // less aggressive rpm rise while downshifting
+        if (!gearDownShiftingInProgress)
+        {
+          //        Serial.println("entrou 5");
+          _currentRpm += acc;
+        }
+        else
+        {
+          Serial.println("entrou 6");
+        }
+        _currentRpm += acc / 2; // less aggressive rpm rise while downshifting
         if (_currentRpm > maxRpm)
           _currentRpm = maxRpm;
       }
@@ -3820,12 +3877,12 @@ void engineOnOff()
   if (currentThrottle > 80 || driveState != 0 || ligaPrimeiraVez == true)
     idleDelayMillis = millis(); // reset delay timer, if throttle not in neutral
 
-//#ifdef AUTO_ENGINE_ON_OFF
+  // #ifdef AUTO_ENGINE_ON_OFF
   if (millis() - idleDelayMillis > 25000)
   {
     engineOn = false; // after delay, switch engine off
   }
-//#endif
+  // #endif
 
 #ifdef AUTO_LIGHTS
   if (millis() - idleDelayMillis > 30000)
@@ -3835,15 +3892,15 @@ void engineOnOff()
 #endif
 
   // Engine start detection
-/*  if (currentThrottle > 100 && !airBrakeTrigger) // Liga motor com joystick
-  {
-    engineOn = true;
-    idleDelayMillis = millis();
+  /*  if (currentThrottle > 100 && !airBrakeTrigger) // Liga motor com joystick
+    {
+      engineOn = true;
+      idleDelayMillis = millis();
 
-#ifdef AUTO_LIGHTS
-    lightsOn = true;
-#endif
-  }*/
+  #ifdef AUTO_LIGHTS
+      lightsOn = true;
+  #endif
+    }*/
 }
 
 //
@@ -3940,8 +3997,9 @@ void headLightsSub(bool head, bool fog, bool roof, bool park)
   // Roof lights
   if (!roof)
     roofLight.off();
-  else {
-//    roofLight.pwm(130 - crankingDim);
+  else
+  {
+    //    roofLight.pwm(130 - crankingDim);
     roofLight.pwm(brilhoTeto - crankingDim);
   }
 #endif // ----
@@ -3949,8 +4007,9 @@ void headLightsSub(bool head, bool fog, bool roof, bool park)
   // Fog lights
   if (!fog)
     fogLight.off();
-  else{
-   // fogLight.pwm(200 - crankingDim);
+  else
+  {
+    // fogLight.pwm(200 - crankingDim);
     fogLight.pwm(brilhoFog - crankingDim);
   }
 }
@@ -3988,13 +4047,13 @@ void led()
 
   // Reversing light ----
   if ((engineRunning || engineStart) && escInReverse)
-//    reversingLight.pwm(reversingLightBrightness - crankingDim);
+    //    reversingLight.pwm(reversingLightBrightness - crankingDim);
     reversingLight.pwm(brilhoRe - crankingDim);
   else
     reversingLight.off();
 
 #if not defined SPI_DASHBOARD
-    // Beacons (blue light) ----
+  // Beacons (blue light) ----
 #if not defined TRACKED_MODE // Normal beacons mode
   if (blueLightTrigger)
   {
@@ -4040,8 +4099,8 @@ void led()
   if (!hazard && !batteryProtection)
   {
 #endif
-//    if (indicatorLon)
-    if (indicatorLon && driveState != 3) //não ligar pisca enquanto ré
+    //    if (indicatorLon)
+    if (indicatorLon && driveState != 3) // não ligar pisca enquanto ré
     {
       if (indicatorL.flash(375, 375, 0, 0, 0, indicatorFade, indicatorOffBrightness))
         indicatorSoundOn = true; // Left indicator
@@ -4059,8 +4118,8 @@ void led()
       indicatorL.off(indicatorFade);
 #endif
 
-//    if (indicatorRon)
-    if (indicatorRon && driveState != 3) //não ligar pisca enquanto ré
+    //    if (indicatorRon)
+    if (indicatorRon && driveState != 3) // não ligar pisca enquanto ré
 
     {
       if (indicatorR.flash(375, 375, 0, 0, 0, indicatorFade, indicatorOffBrightness))
@@ -4097,9 +4156,9 @@ void led()
 #endif
   if (lightsOn && (engineRunning || engineStart))
   {
-//    headLight.pwm(constrain(255 - crankingDim - dipDim + xenonIgnitionFlash, 0, 255));
+    //    headLight.pwm(constrain(255 - crankingDim - dipDim + xenonIgnitionFlash, 0, 255));
     headLight.pwm(constrain(brilhoFarol - crankingDim - dipDim + xenonIgnitionFlash, 0, 255));
-//    headLight.pwm(brilhoFarol);
+    //    headLight.pwm(brilhoFarol);
     brakeLightsSub(rearlightDimmedBrightness);
   }
 
@@ -4115,14 +4174,18 @@ void led()
   // Foglights ----
   if (lightsOn && engineRunning)
   {
-    if (pulseWidth[9] == 1000) {
-//      fogLight.pwm(200 - crankingDim);
+    if (pulseWidth[9] == 1000)
+    {
+      //      fogLight.pwm(200 - crankingDim);
       fogLight.pwm(brilhoFog - crankingDim);
       fogLightOn = true;
-    } else {
+    }
+    else
+    {
       fogLight.off();
-      fogLightOn = false;}
-      }
+      fogLightOn = false;
+    }
+  }
   else
   {
     fogLight.off();
@@ -4130,8 +4193,9 @@ void led()
   }
 
   // Roof lights ----
-  if (lightsOn){
-//    roofLight.pwm(130 - crankingDim);
+  if (lightsOn)
+  {
+    //    roofLight.pwm(130 - crankingDim);
     roofLight.pwm(brilhoTeto - crankingDim);
   }
   else
@@ -4139,7 +4203,7 @@ void led()
 
   // Sidelights ----
   if (engineOn)
-//    sideLight.pwm(200 - crankingDim);
+    //    sideLight.pwm(200 - crankingDim);
     sideLight.pwm(brilhoLado - crankingDim);
   else
     sideLight.off();
@@ -4152,8 +4216,8 @@ void led()
 
 #else // manual lights mode ************************
   // Lights state machine
-//Serial.print("  lightsState: ");
-//Serial.print(lightsState);
+  // Serial.print("  lightsState: ");
+  // Serial.print(lightsState);
   switch (lightsState)
   {
 
@@ -4165,7 +4229,7 @@ void led()
     brakeLightsSub(0); // 0 brightness, if not braking
     break;
 
-  case 1:            // cab lights ---------------------------------------------------------------------
+  case 1: // cab lights ---------------------------------------------------------------------
 #ifdef NO_CABLIGHTS
     lightsState = 2; // Skip cablights
 #else
@@ -4194,7 +4258,7 @@ void led()
     brakeLightsSub(rearlightDimmedBrightness); // 50 brightness, if not braking
     break;
 
-  case 4:            // roof & side & head & fog lights ---------------------------------------------------------------------
+  case 4: // roof & side & head & fog lights ---------------------------------------------------------------------
 #ifdef NO_FOGLIGHTS
     lightsState = 5; // Skip foglights
 #endif
@@ -4204,7 +4268,7 @@ void led()
     brakeLightsSub(rearlightDimmedBrightness); // 50 brightness, if not braking
     break;
 
-  case 5:            // cab & roof & side & head & fog lights ---------------------------------------------------------------------
+  case 5: // cab & roof & side & head & fog lights ---------------------------------------------------------------------
 #ifdef NO_CABLIGHTS
     lightsState = 0; // Skip cablights
 #endif
@@ -4252,13 +4316,13 @@ void shaker()
 void gearboxDetection()
 {
 
-//  static uint8_t previousGear = 1;
+  //  static uint8_t previousGear = 1;
   static bool previousReverse;
-//  static bool sequentialLock;
+  //  static bool sequentialLock;
   static bool overdrive = false;
   static unsigned long upShiftingMillis;
   static unsigned long downShiftingMillis;
-//  static unsigned long lastShiftingMillis; // This timer is used to prevent transmission from oscillating!
+  //  static unsigned long lastShiftingMillis; // This timer is used to prevent transmission from oscillating!
 
 #if defined TRACKED_MODE or defined STEAM_LOCOMOTIVE_MODE // CH2 is used for left throttle in TRACKED_MODE --------------------------------
   selectedGear = 2;
@@ -4343,15 +4407,15 @@ void gearboxDetection()
 #endif                     // End of SEMI_AUTOMATIC **************************************************************************************************
 
   // Gear upshifting detection
-/*  if (selectedGear > previousGear)
-  {
-    gearUpShiftingInProgress = true;
-    gearUpShiftingPulse = true;
-    shiftingTrigger = true;
-    previousGear = selectedGear;
-    lastShiftingMillis = millis();
-  }
-*/
+  /*  if (selectedGear > previousGear)
+    {
+      gearUpShiftingInProgress = true;
+      gearUpShiftingPulse = true;
+      shiftingTrigger = true;
+      previousGear = selectedGear;
+      lastShiftingMillis = millis();
+    }
+  */
   // Gear upshifting duration
   static uint16_t upshiftingDuration = 700;
   if (!gearUpShiftingInProgress)
@@ -4367,15 +4431,15 @@ void gearboxDetection()
 #endif
 
   // Gear downshifting detection
-/*  if (selectedGear < previousGear)
-  {
-    gearDownShiftingInProgress = true;
-    gearDownShiftingPulse = true;
-    shiftingTrigger = true;
-    previousGear = selectedGear;
-    lastShiftingMillis = millis();
-  }
-*/
+  /*  if (selectedGear < previousGear)
+    {
+      gearDownShiftingInProgress = true;
+      gearDownShiftingPulse = true;
+      shiftingTrigger = true;
+      previousGear = selectedGear;
+      lastShiftingMillis = millis();
+    }
+  */
   // Gear downshifting duration
   if (!gearDownShiftingInProgress)
     downShiftingMillis = millis();
@@ -4433,7 +4497,7 @@ void automaticGearSelector()
   // xSemaphoreGive( xRpmSemaphore ); // Now free or "Give" the semaphore for others.
   // }
 
-//Serial.println(_currentRpm);
+  // Serial.println(_currentRpm);
   if (millis() - gearSelectorMillis > 100)
   { // Waiting for 100ms is very important. Otherwise gears are skipped!
     gearSelectorMillis = millis();
@@ -4445,24 +4509,23 @@ void automaticGearSelector()
     if (escInReverse)
     { // Reverse (only one gear)
       selectedAutomaticGear = 0;
-//      Serial.println("entrou 1");
+      //      Serial.println("entrou 1");
     }
     else
     { // Forward (multiple gears)
-//      Serial.println("entrou 2");
+      //      Serial.println("entrou 2");
 
-
-/*      Serial.print("_currentRpm: ");
-      Serial.println(_currentRpm);
-      Serial.print("upShiftPoint: ");
-      Serial.println(upShiftPoint);
-      Serial.print("engineLoad: ");
-      Serial.println(engineLoad);
-*/
+      /*      Serial.print("_currentRpm: ");
+            Serial.println(_currentRpm);
+            Serial.print("upShiftPoint: ");
+            Serial.println(upShiftPoint);
+            Serial.print("engineLoad: ");
+            Serial.println(engineLoad);
+      */
       // Adaptive shift points
       if (millis() - lastDownShiftingMillis > 500 && _currentRpm >= upShiftPoint && engineLoad < 5)
       {                          // 500ms locking timer!
-//      Serial.println("entrou 3");
+                                 //      Serial.println("entrou 3");
         selectedAutomaticGear++; // Upshifting (load maximum is important to prevent gears from oscillating!)
         lastUpShiftingMillis = millis();
       }
@@ -4471,7 +4534,7 @@ void automaticGearSelector()
         selectedAutomaticGear--; // Downshifting incl. kickdown
         lastDownShiftingMillis = millis();
       }
- //     Serial.println("entrou 4");
+      //     Serial.println("entrou 4");
 
       selectedAutomaticGear = constrain(selectedAutomaticGear, 1, NumberOfAutomaticGears);
     }
@@ -4496,14 +4559,14 @@ void automaticGearSelector()
 //
 
 static uint16_t escPulseWidth = 1500;
-//static uint16_t escPulseWidth = 0;
+// static uint16_t escPulseWidth = 0;
 static uint16_t escPulseWidthOut = 1500;
 static uint16_t escSignal = 1500;
 static uint8_t motorDriverDuty = 0;
 static unsigned long escMillis;
-//static unsigned long lastStateTime;
-// static int8_t pulse; // -1 = reverse, 0 = neutral, 1 = forward
-// static int8_t escPulse; // -1 = reverse, 0 = neutral, 1 = forward
+// static unsigned long lastStateTime;
+//  static int8_t pulse; // -1 = reverse, 0 = neutral, 1 = forward
+//  static int8_t escPulse; // -1 = reverse, 0 = neutral, 1 = forward
 static int8_t driveRampRate;
 static int8_t driveRampGain;
 static int8_t brakeRampRate;
@@ -4532,7 +4595,7 @@ int8_t escPulse()
     escPulse = -1; // -1 = Backwards
   else
     escPulse = 0; // 0 = Neutral
- 
+
   return escPulse;
 }
 
@@ -4551,8 +4614,8 @@ void esc()
   { // Check battery voltage every 300ms
     lastBatteryTime = millis();
     batteryVoltage = batteryVolts(); // Store voltage in global variable (also used in dashboard)
-Serial.print("  voltagem: ");
-Serial.println(batteryVoltage);
+    Serial.print("  voltagem: ");
+    Serial.println(batteryVoltage);
     if (batteryVoltage < batteryCutoffvoltage)
     {
       Serial.printf("Battery protection triggered, slowing down! Battery: %.2f V Threshold: %.2f V \n", batteryVoltage, batteryCutoffvoltage);
@@ -4622,8 +4685,8 @@ Serial.println(batteryVoltage);
     brakeRampRate = map(currentThrottle, 0, 500, 1, escBrakeSteps);
     driveRampRate = map(currentThrottle, 0, 500, 1, escAccelerationSteps);
 
-//    Serial.print("driveRampRate: ");
-//    Serial.println(driveRampRate);
+    //    Serial.print("driveRampRate: ");
+    //    Serial.println(driveRampRate);
   } // ----------------------------------------------------
 
   // Emergency ramp rates for falisafe
@@ -4668,9 +4731,9 @@ Serial.println(batteryVoltage);
   { // About very 20 - 75ms
     escMillis = millis();
 
-//Serial.print("driveState: ");
-//Serial.println(driveState);
-    // Drive state state machine **********************************************************************************
+    // Serial.print("driveState: ");
+    // Serial.println(driveState);
+    //  Drive state state machine **********************************************************************************
     switch (driveState)
     {
 
@@ -4692,25 +4755,26 @@ Serial.println(batteryVoltage);
       escIsBraking = false;
       escInReverse = false;
       escIsDriving = true;
-//Serial.println("--------- CASE 1 --------------");
-//Serial.print("escPulseWidth: ");
-//Serial.println(escPulseWidth);
-//Serial.print("joyAY: ");
-//Serial.println(controlePS3.joyAY);
-
+      // Serial.println("--------- CASE 1 --------------");
+      // Serial.print("escPulseWidth: ");
+      // Serial.println(escPulseWidth);
+      // Serial.print("joyAY: ");
+      // Serial.println(controlePS3.joyAY);
 
       if (escPulseWidth < pulseWidth[3] && currentSpeed < speedLimit && !batteryProtection)
       {
-        if (escPulseWidth >= escPulseMaxNeutral){
-          escPulseWidth += (driveRampRate * driveRampGain); }// Faster
+        if (escPulseWidth >= escPulseMaxNeutral)
+        {
+          escPulseWidth += (driveRampRate * driveRampGain);
+        } // Faster
         else
           escPulseWidth = escPulseMaxNeutral; // Initial boost
       }
       if ((escPulseWidth > pulseWidth[3] || batteryProtection) && escPulseWidth > pulseZero[3])
         escPulseWidth -= (driveRampRate * driveRampGain); // Slower
 
-// Serial.println("--------- CASE 1.3 --------------: ");
-// Serial.println(escPulseWidth);
+      // Serial.println("--------- CASE 1.3 --------------: ");
+      // Serial.println(escPulseWidth);
 
       if (gearUpShiftingPulse && shiftingAutoThrottle && !automatic && !doubleClutch)
       {                                                                    // lowering RPM, if shifting up transmission
@@ -4837,8 +4901,7 @@ Serial.println(batteryVoltage);
     else
       driveRampGain = 1;
 
-
-      // ESC linearity compensation ---------------------
+    // ESC linearity compensation ---------------------
 #ifdef QUICRUN_FUSION
     escPulseWidthOut = reMap(curveQuicrunFusion, escPulseWidth);
 #elif defined QUICRUN_16BL30
@@ -4855,8 +4918,8 @@ Serial.println(batteryVoltage);
     escSignal = map(escPulseWidthOut, escPulseMax, escPulseMin, 1000, 2000); // direction inversed
 #endif // --------------------------------------------
 
-#if not defined RZ7886_DRIVER_MODE     
-// Classic crawler style RC ESC mode ----
+#if not defined RZ7886_DRIVER_MODE
+    // Classic crawler style RC ESC mode ----
     mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_A, escSignal); // ESC now using MCPWM
 
 #else // RZ 7886 motor driver mode ----
@@ -4972,12 +5035,12 @@ void triggerHorn()
     rampsUp = false;
     rampsDown = false;
 
-/*
-Serial.print("pulseWidth[4]: ");
-Serial.print(pulseWidth[4]);
-Serial.print("   pulseMaxLimit[4]: ");
-Serial.println(pulseMaxLimit[4]);
-*/
+    /*
+    Serial.print("pulseWidth[4]: ");
+    Serial.print(pulseWidth[4]);
+    Serial.print("   pulseMaxLimit[4]: ");
+    Serial.println(pulseMaxLimit[4]);
+    */
     // detect horn trigger ( impulse length > 1900us) -------------
     if (pulseWidth[4] > 1900 && pulseWidth[4] < pulseMaxLimit[4])
     {
@@ -5184,31 +5247,30 @@ void rcTriggerRead()
   // Cycling light state machine, if dual rate @75% and long in position -----
   static bool lightsStateLock;
 
-//  if (functionR75u.toggleLong(pulseWidth[5], 1150) != lightsStateLock)
+  //  if (functionR75u.toggleLong(pulseWidth[5], 1150) != lightsStateLock)
   if ((pulseWidth[8] == 2000) != lightsStateLock)
   {
-      if (lightsState >= 5)
-        lightsState = 0;
-      else
-        lightsState++;
+    if (lightsState >= 5)
+      lightsState = 0;
+    else
+      lightsState++;
 
-      lightsStateLock = !lightsStateLock;
-    }
+    lightsStateLock = !lightsStateLock;
+  }
 
   // Toggling high / low beam, if dual rate @100% and short in position
   static bool beamStateLock;
- // if (functionR100u.toggleLong(pulseWidth[5], 1000) != beamStateLock)
-//  if (functionR100u.toggleLong(pulseWidth[9], 2000) != beamStateLock)
-  if ((pulseWidth[9] == 2000) != beamStateLock) //circulo
+  // if (functionR100u.toggleLong(pulseWidth[5], 1000) != beamStateLock)
+  //  if (functionR100u.toggleLong(pulseWidth[9], 2000) != beamStateLock)
+  if ((pulseWidth[9] == 2000) != beamStateLock) // circulo
   {
-//    headLightsHighBeamOn = !headLightsHighBeamOn; // This lock is required, because high / low beam needs to be able to be changed in other program sections!
-//    beamStateLock = !beamStateLock;
-
+    //    headLightsHighBeamOn = !headLightsHighBeamOn; // This lock is required, because high / low beam needs to be able to be changed in other program sections!
+    //    beamStateLock = !beamStateLock;
   }
 
   // Headlight flasher as long as in position, if dual rate @100% -----
-//  headLightsFlasherOn = functionR100u.momentary(pulseWidth[5], 1000);
-  headLightsFlasherOn = functionR100u.momentary(pulseWidth[12], 2000); //quadrado
+  //  headLightsFlasherOn = functionR100u.momentary(pulseWidth[5], 1000);
+  headLightsFlasherOn = functionR100u.momentary(pulseWidth[12], 2000); // quadrado
 
   // Jake brake as long as in position, if dual rate @100% -----
 #ifdef JAKE_BRAKE_SOUND
@@ -5279,7 +5341,7 @@ void rcTriggerRead()
 #endif
 
   // Mode 2 ----
-//  mode2 = mode2Trigger.onOff(pulseWidth[9], 1800, 1200); // CH9 (MODE2)
+  //  mode2 = mode2Trigger.onOff(pulseWidth[9], 1800, 1200); // CH9 (MODE2)
 
 #if defined MODE2_WINCH // Winch control mode
   if (mode2)
@@ -5303,21 +5365,22 @@ void rcTriggerRead()
     sound1trigger = true; // Trigger sound 1 (It is reset after playback is done
 #endif
 
-    // Momentary buttons ******************************************************************
-    // Engine on / off momentary button CH10 (Start) -----
+  // Momentary buttons ******************************************************************
+  // Engine on / off momentary button CH10 (Start) -----
 #ifndef AUTO_ENGINE_ON_OFF
   static bool engineStateLock2;
-  
+
   if (driveState == 0 && (engineState == OFF || engineState == RUNNING))
   { // Only, if vehicle stopped and engine idling or off!
-//    if (momentary1Trigger.toggleLong(pulseWidth[10], 2000) != engineStateLock2)
-    if ((pulseWidth[10] == 2000) != engineStateLock2) {
+    //    if (momentary1Trigger.toggleLong(pulseWidth[10], 2000) != engineStateLock2)
+    if ((pulseWidth[10] == 2000) != engineStateLock2)
+    {
       engineOn = !engineOn; // This lock is required, because engine on / off needs to be able to be changed in other program sections!
 #ifdef AUTO_LIGHTS
-    if (engineOn)
-      lightsOn = true;
-    else
-      lightsOn = false;
+      if (engineOn)
+        lightsOn = true;
+      else
+        lightsOn = false;
 #endif
       engineStateLock2 = !engineStateLock2;
     }
@@ -5441,7 +5504,7 @@ void updateDashboard()
   static bool startAnimationFinished = false;
 
   static uint16_t rpmNeedle = 0;
-//  static uint16_t speedNeedle = 0;
+  //  static uint16_t speedNeedle = 0;
   static uint16_t fuelNeedle = 0;
   static uint16_t adblueNeedle = 0;
 
@@ -6038,7 +6101,7 @@ void trailerControl()
     {
 
       // If so, then send message via ESP-NOW
-//      esp_err_t result = esp_now_send(0, (uint8_t *)&trailerData, sizeof(trailerData));
+      //      esp_err_t result = esp_now_send(0, (uint8_t *)&trailerData, sizeof(trailerData));
       esp_now_send(0, (uint8_t *)&trailerData, sizeof(trailerData));
 
 #ifdef ESPNOW_DEBUG
@@ -6079,8 +6142,8 @@ void loop()
 #else
   // measure RC signals mark space ratio
   readPwmSignals();
-  mcpwmOutput();     // PWM servo signal output
-  
+  mcpwmOutput(); // PWM servo signal output
+
 #endif
 
   // Horn triggering
