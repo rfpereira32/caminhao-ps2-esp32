@@ -137,7 +137,7 @@ const char FIRMWARE_UPDATE_PAGE[] PROGMEM = R"rawliteral(
 <section><h2>Enviar firmware</h2><p>Selecione o arquivo .bin compilado para esta placa.</p><form id="updateForm"><input type="file" name="firmware" accept=".bin,application/octet-stream" required><button>Enviar e instalar firmware</button></form><progress id="progress" value="0" max="100"></progress><p id="result"></p></section>
 <script>
 const statusText=document.getElementById('status');
-async function refreshStatus(){try{const r=await fetch('/status');const s=await r.json();statusText.textContent=s.connected?'Wi-Fi STA conectado. Endereço no roteador: '+s.ip:'Ponto de acesso My_Truck ativo em 192.168.4.1. Wi-Fi STA desconectado.';document.getElementById('rollbackSection').hidden=!s.rollbackPending;}catch(e){}}
+async function refreshStatus(){try{const r=await fetch('/status');const s=await r.json();statusText.textContent='Firmware ativo: '+s.firmwareVersion+'. '+(s.connected?'Wi-Fi STA conectado. Endereço no roteador: '+s.ip:'Ponto de acesso My_Truck ativo em 192.168.4.1. Wi-Fi STA desconectado.');document.getElementById('rollbackSection').hidden=!s.rollbackPending;}catch(e){}}
 refreshStatus();setInterval(refreshStatus,3000);
 document.getElementById('wifiForm').addEventListener('submit',async e=>{e.preventDefault();const r=await fetch('/connect',{method:'POST',body:new URLSearchParams(new FormData(e.target))});document.getElementById('result').textContent=await r.text();});
 async function firmwareAction(path){try{const r=await fetch(path,{method:'POST'});document.getElementById('result').textContent=await r.text();await refreshStatus();}catch(e){document.getElementById('result').textContent='O ESP está reiniciando para voltar à versão anterior.';}}
@@ -162,7 +162,8 @@ void beginFirmwareUpdate()
     const String ip = connected ? WiFi.localIP().toString() : String("192.168.4.1");
     String response = String("{\"connected\":") + (connected ? "true" : "false") +
                       ",\"ip\":\"" + ip + "\",\"rollbackPending\":" +
-                      (otaRollbackPending ? "true" : "false") + "}";
+                      (otaRollbackPending ? "true" : "false") +
+                      ",\"firmwareVersion\":\"" + String(codeVersion) + "\"}";
     firmwareServer.send(200, "application/json", response);
   });
 
