@@ -127,7 +127,7 @@ uint16_t globalAccelerationPercentage = 100; // about 100 - 200% (200 for Jeep, 
  *  IMPORTANT: Enter used resistor values in Ohms (Ω) and THEN adjust DIODE_DROP, until your readings match the actual battery voltage! */
 #define BATTERY_PROTECTION // This will disable the ESC output, if the battery cutout voltage is reached. 2 fast flashes = battery error!
 //const float CUTOFF_VOLTAGE = 3.3;        // Usually 3.3 V per LiPo cell. NEVER below 3.2 V!
-const float CUTOFF_VOLTAGE = 3.1;        // Usually 3.0 V per LiIon cell
+const float CUTOFF_VOLTAGE = 3.2;        // Usually 3.0 V per LiIon cell
 //const float FULLY_CHARGED_VOLTAGE = 4.2; // Usually 4.2 V per LiPo cell, NEVER above!
 const float FULLY_CHARGED_VOLTAGE = 4.1; // Usually 4.1 V per LiIon cell, NEVER above!
 const float RECOVERY_HYSTERESIS = 0.2;   // around 0.2 V

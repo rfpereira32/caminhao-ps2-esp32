@@ -17,7 +17,8 @@
    Arduino IDE is supported as well, but I recommend to use VS Code, because libraries and boards are managed automatically.
 */
 
-char codeVersion[] = "9.12.0-OTA-TEST-01"; // Identificador temporário para testes de upload OTA e rollback.
+//char codeVersion[] = "9.12.0-OTA-TEST-01"; // Identificador temporário para testes de upload OTA e rollback.
+char codeVersion[] = "9.12.0"; // Identificador temporário para testes de upload OTA e rollback.
 
 //
 // =======================================================================================================
